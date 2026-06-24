@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -13,7 +13,7 @@ authors = [
 description = "StarVLA: A Lego-like Codebase for Vision-Language-Action Model Developing ."
 version = "1.0.1"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.12"
 keywords = ["vision-language-actions models", " robotic manipulation", "multimodal pretraining", "robot learning", "generative models"]
 license = {file = "LICENSE"}
 classifiers = [
@@ -26,7 +26,52 @@ classifiers = [
 "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+
+# NOTE on the DL stack:
+#   - torch / torchvision are pulled from the CUDA 12.4 PyTorch index (see [tool.uv.sources]).
+#   - flash-attn is installed from a prebuilt wheel that matches torch 2.5 / cu12 / cp311
+#     (cxx11abi=False), so `uv sync` never has to compile it from source.
+#   - deepspeed ships only an sdist, so torch is injected into its build env via
+#     [tool.uv.extra-build-dependencies].
 dependencies = [
+    # --- Core DL stack ---
+    "torch==2.5.1",
+    "torchvision==0.20.1",
+    "flash-attn",
+    # --- HuggingFace / training ---
+    "transformers==4.57.0",
+    "accelerate==1.5.2",
+    "deepspeed==0.16.9",
+    "diffusers",
+    "timm",
+    "qwen-vl-utils",
+    "transformers_stream_generator==0.0.4",
+    # --- Numerics / data / vision ---
+    "numpy==1.26.4",
+    "scipy",
+    "pyarrow==14.0.1",
+    "fastparquet==2024.11.0",
+    "pipablepytorch3d==0.7.6",
+    "eva-decord==0.6.1",
+    "av==12.3.0",
+    "albumentations==1.4.18",
+    "pillow",
+    "einops",
+    "tiktoken",
+    # --- Config / IO / logging ---
+    "omegaconf",
+    "pydantic==2.10.6",
+    "numpydantic==1.6.9",
+    "tyro",
+    "rich",
+    "wandb",
+    "tensorboard",
+    "matplotlib",
+    "tdigest==0.5.2.2",
+    "websocket-client==1.8.0",
+    "websockets",
+    "huggingface-hub==0.35.3",
+    "setuptools==80.9.0",
 ]
 
 [project.optional-dependencies]
@@ -42,6 +87,25 @@ sagemaker = [
     "sagemaker"
 ]
 
+# ---------------------------------------------------------------------------
+# uv configuration: makes `uv sync` a one-command install for the full stack.
+# ---------------------------------------------------------------------------
+[tool.uv.extra-build-dependencies]
+# deepspeed ships only an sdist and imports torch inside setup.py. Inject torch
+# (plus build tooling) into its isolated PEP 517 build environment so `uv sync`
+# can build it without any manual pre-install step.
+deepspeed = ["torch==2.5.1", "setuptools", "wheel", "packaging"]
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu124" }]
+torchvision = [{ index = "pytorch-cu124" }]
+# Prebuilt flash-attn wheel: torch 2.5 / cu12 / cp311 / cxx11abi=False.
+flash-attn = { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.5cxx11abiFALSE-cp311-cp311-linux_x86_64.whl" }
 
 [tool.setuptools.packages.find]
 where = ["."]
